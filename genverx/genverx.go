@@ -3,6 +3,7 @@ package genverx
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	rawverx "github.com/ariaci/rawverx"
 
@@ -19,11 +20,15 @@ const (
 	ArchARM64
 )
 
-type Info struct {
-	Version     rawverx.SemVer
+type AdditionalInfo struct {
 	ProductName string
 	Author      string
 	Copyright   string
+}
+
+type Info struct {
+	AdditionalInfo
+	Version rawverx.SemVer
 }
 
 type archDefinition struct {
@@ -36,6 +41,24 @@ var archDefinitions = map[Arch]archDefinition{
 	ArchAMD64: {Arch: winres.ArchAMD64, Postfix: "_windows_amd64"},
 	ArchARM:   {Arch: winres.ArchARM, Postfix: "_windows_arm"},
 	ArchARM64: {Arch: winres.ArchARM64, Postfix: "_windows_arm64"},
+}
+
+func NewInfo(core string, additional AdditionalInfo) (Info, error) {
+	ri, err := rawverx.NewInfo(core)
+	if err != nil {
+		return Info{}, err
+	}
+
+	return Info{AdditionalInfo: additional, Version: ri.Version}, nil
+}
+
+func NewInfoWithVersionFromFile(filename string, additional AdditionalInfo) (Info, error) {
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		return Info{}, fmt.Errorf("read version file %q: %w", filename, err)
+	}
+
+	return NewInfo(strings.TrimSpace(string(data)), additional)
 }
 
 func createWinResVersionInfo(i Info) winres_version.Info {
