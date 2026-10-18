@@ -1,4 +1,4 @@
-name: Test module and trigger pkg.go.dev update
+name: Test rawverx module and trigger pkg.go.dev update
 
 on:
   workflow_dispatch:
@@ -27,7 +27,7 @@ jobs:
 
       - name: Test module
         run: |
-          go test .
+          go test ./...
 
   update-pkg-go-dev:
     name: Update pkg.go.dev
@@ -38,4 +38,5 @@ jobs:
     steps:
       - name: Update pkg.go.dev
         if: ${{ !env.ACT }}
-        run: curl --fail --silent --show-error https://sum.golang.org/lookup/github.com/ariaci/rawverx@${{ github.ref_name }}
+        run: |
+          curl --fail --silent --show-error "https://sum.golang.org/lookup/github.com/ariaci/rawverx@${{ github.ref_name }}"

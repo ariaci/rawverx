@@ -1,0 +1,44 @@
+name: Test genverx module and trigger pkg.go.dev update
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "genverx/v*"
+
+jobs:
+  test:
+    name: Test version ${{ matrix.go-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: 
+        go-version:
+          - "1.25"
+          - "stable"
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version: ${{ matrix.go-version }}
+
+      - name: Test module
+        run: |
+          cd genverx
+          go test ./...
+
+  update-pkg-go-dev:
+    name: Update pkg.go.dev
+    needs: [test]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update pkg.go.dev
+        if: ${{ !env.ACT }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#genverx/}"
+          curl --fail --silent --show-error "https://sum.golang.org/lookup/github.com/ariaci/rawverx/genverx@${VERSION}"
