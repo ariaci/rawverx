@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-type testCase struct {
+type newInfoTestCase struct {
 	file     string
 	valid    bool
 	expected string
@@ -29,7 +29,7 @@ func expectEquality(t *testing.T, i Info, v string, a AdditionalInfo) {
 	}
 }
 
-func checkTestCase(t *testing.T, i Info, err error, c testCase, a AdditionalInfo) {
+func checkTestCase(t *testing.T, i Info, err error, c newInfoTestCase, a AdditionalInfo) {
 	t.Helper()
 
 	if err != nil && c.valid {
@@ -58,7 +58,7 @@ func getVersionFromFile(t *testing.T, file string) string {
 func TestNewInfo(t *testing.T) {
 	t.Parallel()
 
-	testCases := []testCase{
+	testCases := []newInfoTestCase{
 		{"testdata/valid.version", true, "1.2.4-alpha.1"},
 		{"testdata/invalid.version", false, ""},
 		{"testdata/empty.version", false, ""},
@@ -82,7 +82,7 @@ func TestNewInfo(t *testing.T) {
 func TestNewInfoWithVersionFromFile(t *testing.T) {
 	t.Parallel()
 
-	testCases := []testCase{
+	testCases := []newInfoTestCase{
 		{"testdata/valid.version", true, "1.2.4-alpha.1"},
 		{"testdata/invalid.version", false, ""},
 		{"testdata/empty.version", false, ""},
