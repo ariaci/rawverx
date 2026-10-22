@@ -89,6 +89,12 @@ func (c Core) Compare(o Core) int {
 	return 0
 }
 
+// Compare compares two pre-release versions according to SemVer precedence rules.
+//
+// Both PreRelease values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if p is less than o, 0 if they are equal,
+// and +1 if p is greater than o.
 func (p PreRelease) Compare(o PreRelease) int {
 	switch {
 	case p == o:
@@ -150,6 +156,13 @@ func (p PreRelease) Compare(o PreRelease) int {
 	}
 }
 
+// Compare compares two semantic versions according to SemVer precedence rules.
+// Build metadata is ignored.
+//
+// Both SemVer values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if v is less than o, 0 if they are equal,
+// and +1 if v is greater than o.
 func (v SemVer) Compare(o SemVer) int {
 	if r := v.Core.Compare(o.Core); r != 0 {
 		return r
@@ -158,6 +171,13 @@ func (v SemVer) Compare(o SemVer) int {
 	return v.PreRelease.Compare(o.PreRelease)
 }
 
+// Compare compares two Info values by semantic version and, if equal,
+// by their timestamps. An empty timestamp precedes a non-empty one.
+//
+// Both Info values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if i is less than o, 0 if they are equal,
+// and +1 if i is greater than o.
 func (i Info) Compare(o Info) int {
 	if r := i.Version.Compare(o.Version); r != 0 {
 		return r
