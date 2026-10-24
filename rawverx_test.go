@@ -35,11 +35,11 @@ func expectValidSemVer(t *testing.T, input string, expected SemVer) {
 		t.Fatalf("expected valid SemVer, got error: %v", err)
 	}
 	if core != expected {
-		t.Fatalf("expected SemVer %v, got %v", expected, core)
+		t.Fatalf("expected SemVer %q, got %q", expected, core)
 	}
 
 	if core.Build.HasCommit() {
-		t.Fatalf("expected empty commit hash, got '%v'", core.Build)
+		t.Fatalf("expected empty commit hash, got %q", core.Build)
 	}
 }
 
@@ -48,7 +48,7 @@ func expectInvalidSemVer(t *testing.T, input string) {
 
 	core, err := ParseSemVerCore(input)
 	if err == nil {
-		t.Fatalf("expected invalid SemVer, got valid: %v", core)
+		t.Fatalf("expected invalid SemVer, got valid: %q", core)
 	}
 }
 
@@ -213,7 +213,7 @@ func testBuildString(t *testing.T, c buildCase) {
 	t.Helper()
 
 	if got := c.build.String(); got != c.expected {
-		t.Errorf("Build.String() = %v, want %v", got, c.expected)
+		t.Errorf("Build.String() = %q, want %q", got, c.expected)
 	}
 }
 
