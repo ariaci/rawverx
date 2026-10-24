@@ -129,3 +129,51 @@ func TestSemVerCompare(t *testing.T) {
 
 	testCompare(t, versions)
 }
+
+func TestInfoCompare(t *testing.T) {
+	t.Parallel()
+
+	newInfo := func(s, d string) Info {
+		t.Helper()
+
+		v, err := ParseSemVerCore(s)
+		if err != nil {
+			t.Fatalf("expected valid SemVer for %q, got error: %v", s, err)
+		}
+
+		return Info{Version: v, Time: d}
+	}
+
+	infos := []Info{
+		newInfo("0.0.0-alpha", ""),
+		newInfo("0.0.0", ""),
+		newInfo("1.0.0-alpha", ""),
+
+		newInfo("1.0.0", ""),
+		newInfo("1.0.0", "2024-01-01T00:00:00Z"),
+		newInfo("1.0.0", "2024-01-01T00:00:01Z"),
+		newInfo("1.0.0", "2024-01-01T10:00:00+02:00"), // 08:00 UTC
+		newInfo("1.0.0", "2024-01-01T09:00:00Z"),
+		newInfo("1.0.0", "2025-01-01T00:00:00Z"),
+
+		newInfo("1.0.1-alpha", ""),
+		newInfo("1.0.1", ""),
+		newInfo("2.0.0", ""),
+	}
+
+	testCompare(t, infos)
+}
+
+func TestInfoCompareEqualTime(t *testing.T) {
+	t.Parallel()
+
+	a := Info{Version: SemVer{Core: Core{1, 0, 0}}, Time: "2024-01-01T12:00:00Z"}
+	b := Info{Version: SemVer{Core: Core{1, 0, 0}}, Time: "2024-01-01T13:00:00+01:00"}
+
+	if got := a.Compare(b); got != 0 {
+		t.Fatalf("expected equal timestamps, got %d", got)
+	}
+	if got := b.Compare(a); got != 0 {
+		t.Fatalf("expected equal timestamps, got %d", got)
+	}
+}
