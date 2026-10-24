@@ -98,3 +98,34 @@ func TestPreReleaseCompare(t *testing.T) {
 
 	testCompare(t, preReleases)
 }
+
+func TestSemVerCompare(t *testing.T) {
+	t.Parallel()
+
+	newSemVer := func(s string) SemVer {
+		t.Helper()
+
+		v, err := ParseSemVerCore(s)
+		if err != nil {
+			t.Fatalf("expected valid SemVer for %q, got error: %v", s, err)
+		}
+
+		return v
+	}
+
+	versions := []SemVer{
+		newSemVer("0.0.0-alpha"),
+		newSemVer("0.0.0"),
+		newSemVer("0.0.1"),
+		newSemVer("1.0.0-alpha.1"),
+		newSemVer("1.0.0-alpha.2"),
+		newSemVer("1.0.0-beta"),
+		newSemVer("1.0.0"),
+		newSemVer("1.0.1-alpha"),
+		newSemVer("1.0.1"),
+		newSemVer("2.0.0-alpha"),
+		newSemVer("2.0.0"),
+	}
+
+	testCompare(t, versions)
+}
