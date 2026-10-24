@@ -67,6 +67,10 @@ func NewInfo(c string) (Info, error) {
 	return i, nil
 }
 
+// Compare compares two core versions by major, minor, and patch.
+//
+// It returns -1 if c is less than o, 0 if they are equal,
+// and +1 if c is greater than o.
 func (c Core) Compare(o Core) int {
 	cmp := func(a uint64, b uint64) int {
 		if a < b {

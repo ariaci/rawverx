@@ -26,11 +26,11 @@ func testCompare[T comparable[T], Cases ~[]T](t *testing.T, cases Cases) {
 				})
 			} else {
 				t.Run(fmt.Sprintf("%v < %v && %v > %v", oc, ic, ic, oc), func(t *testing.T) {
-					if oc.Compare(ic) >= 0 {
-						t.Fatalf("expected %q < %q, got %q >= %q", oc, ic, oc, ic)
+					if got := oc.Compare(ic); got >= 0 {
+						t.Fatalf("expected %q < %q, got %d", oc, ic, got)
 					}
-					if ic.Compare(oc) <= 0 {
-						t.Fatalf("expected %q > %q, got %q <= %q", ic, oc, ic, oc)
+					if got := ic.Compare(oc); got <= 0 {
+						t.Fatalf("expected %q > %q, got %d", ic, oc, got)
 					}
 				})
 			}
@@ -128,6 +128,25 @@ func TestSemVerCompare(t *testing.T) {
 	}
 
 	testCompare(t, versions)
+}
+
+func TestSemVerCompareEqualBuild(t *testing.T) {
+	t.Parallel()
+
+	a := SemVer{
+		Core: Core{1, 2, 3},
+	}
+	b := SemVer{
+		Core:  Core{1, 2, 3},
+		Build: Build{Commit: "abcdef", Dirty: true},
+	}
+
+	if got := a.Compare(b); got != 0 {
+		t.Fatalf("expected equal versions, got %d", got)
+	}
+	if got := b.Compare(a); got != 0 {
+		t.Fatalf("expected equal versions, got %d", got)
+	}
 }
 
 func TestInfoCompare(t *testing.T) {
