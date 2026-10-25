@@ -32,6 +32,8 @@ type Info struct {
 	Time    string
 }
 
+const maxCoreValue uint64 = 9999999999999999999
+
 var semverCoreRe = regexp.MustCompile(
 	`^(0|[1-9][0-9]{0,18})\.(0|[1-9][0-9]{0,18})\.(0|[1-9][0-9]{0,18})(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$`,
 )
@@ -204,6 +206,20 @@ func (i Info) Compare(o Info) int {
 	}
 }
 
+func (c Core) Validate() error {
+	if c.Major > maxCoreValue {
+		return fmt.Errorf("invalid major %d: exceeds maximum of %d", c.Major, maxCoreValue)
+	}
+	if c.Minor > maxCoreValue {
+		return fmt.Errorf("invalid minor %d: exceeds maximum of %d", c.Minor, maxCoreValue)
+	}
+	if c.Patch > maxCoreValue {
+		return fmt.Errorf("invalid patch %d: exceeds maximum of %d", c.Patch, maxCoreValue)
+	}
+
+	return nil
+}
+
 func (p PreRelease) Validate() error {
 	if p == "" {
 		return nil
@@ -225,6 +241,9 @@ func (b Build) Validate() error {
 }
 
 func (v SemVer) Validate() error {
+	if err := v.Core.Validate(); err != nil {
+		return err
+	}
 	if err := v.PreRelease.Validate(); err != nil {
 		return err
 	}

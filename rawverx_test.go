@@ -27,6 +27,20 @@ type buildCase struct {
 	expected string
 }
 
+func expectValidation(t *testing.T, s SemVer, validCore, validPreRelease bool) {
+	t.Helper()
+
+	if err := s.Validate(); (err == nil) != (validCore && validPreRelease) {
+		t.Errorf("SemVer.Validate() = %v", err)
+	}
+	if err := s.Core.Validate(); (err == nil) != validCore {
+		t.Errorf("Core.Validate() = %v", err)
+	}
+	if err := s.PreRelease.Validate(); (err == nil) != validPreRelease {
+		t.Errorf("PreRelease.Validate() = %v", err)
+	}
+}
+
 func expectValidSemVer(t *testing.T, input string, expected SemVer) {
 	t.Helper()
 
@@ -90,12 +104,14 @@ func testPreReleaseCases(t *testing.T, c string, expected Core, validCore bool) 
 		p := strings.TrimPrefix(prCase.preRelease, "-")
 		i := fmt.Sprintf("%s%s", c, prCase.preRelease)
 		t.Run(i, func(t *testing.T) {
+			s := SemVer{Core: expected, PreRelease: PreRelease(p)}
 			if validCore && prCase.valid {
-				e := SemVer{Core: expected, PreRelease: PreRelease(p)}
-				expectValidSemVer(t, i, e)
+				expectValidSemVer(t, i, s)
 			} else {
 				expectInvalidSemVer(t, i)
 			}
+
+			expectValidation(t, s, true, prCase.valid || p == "")
 		})
 	}
 }
@@ -188,25 +204,29 @@ func TestParseNegativeSemVer(t *testing.T) {
 func TestParseLargeSemVer(t *testing.T) {
 	t.Parallel()
 
-	t.Run("9999999999999999999.0.0", func(t *testing.T) {
-		expectValidSemVer(t, "9999999999999999999.0.0", SemVer{Core: Core{Major: 9999999999999999999, Minor: 0, Patch: 0}})
-	})
-	t.Run("0.9999999999999999999.0", func(t *testing.T) {
-		expectValidSemVer(t, "0.9999999999999999999.0", SemVer{Core: Core{Major: 0, Minor: 9999999999999999999, Patch: 0}})
-	})
-	t.Run("0.0.9999999999999999999", func(t *testing.T) {
-		expectValidSemVer(t, "0.0.9999999999999999999", SemVer{Core: Core{Major: 0, Minor: 0, Patch: 9999999999999999999}})
-	})
+	cases := []struct {
+		c Core
+		v bool
+	}{
+		{Core{maxCoreValue, 0, 0}, true},
+		{Core{0, maxCoreValue, 0}, true},
+		{Core{0, 0, maxCoreValue}, true},
+		{Core{maxCoreValue + 1, 0, 0}, false},
+		{Core{0, maxCoreValue + 1, 0}, false},
+		{Core{0, 0, maxCoreValue + 1}, false},
+	}
 
-	t.Run("10000000000000000000.0.0", func(t *testing.T) {
-		expectInvalidSemVer(t, "10000000000000000000.0.0")
-	})
-	t.Run("0.10000000000000000000.0", func(t *testing.T) {
-		expectInvalidSemVer(t, "0.10000000000000000000.0")
-	})
-	t.Run("0.0.10000000000000000000", func(t *testing.T) {
-		expectInvalidSemVer(t, "0.0.10000000000000000000")
-	})
+	for _, c := range cases {
+		d := fmt.Sprintf("%d.%d.%d", c.c.Major, c.c.Minor, c.c.Patch)
+		t.Run(d, func(t *testing.T) {
+			if c.v {
+				expectValidSemVer(t, d, SemVer{Core: c.c})
+			} else {
+				expectInvalidSemVer(t, d)
+			}
+			expectValidation(t, SemVer{Core: c.c}, c.v, true)
+		})
+	}
 }
 
 func testBuildString(t *testing.T, c buildCase) {
