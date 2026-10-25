@@ -55,6 +55,9 @@ func TestInfoValidate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
+			if got := c.info.HasTime(); got != (c.info.Time != "") {
+				t.Errorf("Info.HasTime() = %t, expected %t", got, c.info.Time != "")
+			}
 			if err := c.info.Validate(); (err == nil) != c.valid {
 				t.Errorf("Info.Validate() = %v, expected valid = %t", err, c.valid)
 			}

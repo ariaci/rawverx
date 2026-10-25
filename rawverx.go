@@ -152,14 +152,11 @@ func (p PreRelease) Compare(o PreRelease) int {
 		}
 	}
 
-	switch {
-	case spp < spo:
+	if spp < spo {
 		return -1
-	case spo < spp:
-		return 1
-	default:
-		return 0
 	}
+
+	return 1
 }
 
 // Compare compares two semantic versions according to SemVer precedence rules.
