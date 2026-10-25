@@ -3,7 +3,6 @@
 A lightweight, idiomatic Go library for application version information.
 
 `rawverx` combines an application-defined semantic version with VCS information embedded by the Go toolchain. It provides structured access to version components, pre-release identifiers, Git commit information, repository state, and the VCS timestamp without requiring build-time generated source files or linker flags.
-
 The design emphasizes simplicity, reproducible builds, and a clean separation between the application version and build metadata.
 
 ## ✨ Features
@@ -11,6 +10,8 @@ The design emphasizes simplicity, reproducible builds, and a clean separation be
 - Semantic version parsing using `major.minor.patch`
 - Optional SemVer pre-release identifiers
 - Structured version information through dedicated Go types
+- Semantic version comparison following SemVer precedence rules
+- Validation of version components, build metadata, and timestamps
 - Automatic Git commit detection through Go build information
 - Automatic detection of modified (`dirty`) source trees
 - Access to the VCS timestamp embedded by the Go toolchain
@@ -66,7 +67,6 @@ When built from a Git repository, the resulting information may look similar to:
 ```text
 1.2.3 build: 2704d5d777b4... (2026-09-24T16:11:13Z)
 ```
-
 If no VCS information is available:
 
 ```text
@@ -99,7 +99,6 @@ Numeric pre-release identifiers follow SemVer rules and therefore cannot contain
 1.2.3-1       // valid
 1.2.3-01      // invalid
 ```
-
 An identifier containing non-numeric characters is treated as an alphanumeric identifier:
 
 ```text
@@ -159,10 +158,111 @@ fmt.Println(version.PreRelease)
 ```text
 <major>.<minor>.<patch>[-<pre-release>]
 ```
-
 Build metadata is intentionally not accepted as part of the supplied version string. Build information is represented separately by `rawverx` and populated from the Go toolchain where available.
 
 The numeric `major`, `minor`, and `patch` components are represented as `uint64`.
+
+## ⚖️ Version comparison
+
+`rawverx` provides `Compare` methods for `Core`, `PreRelease`, `SemVer`, and `Info`.
+
+Each comparison returns:
+
+- `-1` if the receiver is less than the other value
+- `0` if both values have equal precedence
+- `+1` if the receiver is greater than the other value
+
+### Semantic version precedence
+
+`SemVer.Compare` follows the Semantic Versioning precedence rules: core version components are compared numerically, followed by pre-release identifiers.
+
+```go
+v1, err := rawverx.ParseSemVerCore("1.2.3-rc.1")
+if err != nil {
+	log.Fatal(err)
+}
+
+v2, err := rawverx.ParseSemVerCore("1.2.3")
+if err != nil {
+	log.Fatal(err)
+}
+
+fmt.Println(v1.Compare(v2)) // -1
+fmt.Println(v2.Compare(v1)) // +1
+fmt.Println(v1.Compare(v1)) //  0
+```
+
+Pre-release identifiers are compared from left to right:
+
+```text
+1.0.0-alpha < 1.0.0-alpha.1 < 1.0.0-beta < 1.0.0-rc.1 < 1.0.0
+```
+
+Numeric identifiers are compared numerically and have lower precedence than non-numeric identifiers. When all shared identifiers are equal, the shorter pre-release has lower precedence.
+
+Git commit information and the dirty state are deliberately ignored by `SemVer.Compare`, as build metadata does not affect SemVer precedence.
+
+### Application information comparison
+
+`Info.Compare` first compares the semantic versions. When they have equal precedence, the VCS timestamps are compared chronologically.
+
+```go
+older := rawverx.Info{
+	Version: v2,
+	Time:    "2024-01-01T00:00:00Z",
+}
+newer := rawverx.Info{
+	Version: v2,
+	Time:    "2024-02-01T00:00:00Z",
+}
+
+fmt.Println(older.Compare(newer)) // -1
+```
+
+An empty timestamp has lower precedence than a non-empty timestamp. Two timestamps representing the same instant compare as equal, even when their timezone offsets differ.
+
+`Compare` expects valid values. Use `Validate` first when comparing values constructed or modified directly.
+
+## ✅ Version validation
+
+All version information types (`Core`, `PreRelease`, `Build`, `SemVer`, and `Info`) provide a `Validate` method.
+
+Validation returns `nil` for a valid value or an error describing the invalid component.
+
+```go
+version := rawverx.SemVer{
+	Core: rawverx.Core{Major: 1, Minor: 2, Patch: 3},
+	PreRelease: "rc.1",
+}
+
+if err := version.Validate(); err != nil {
+	log.Fatal(err)
+}
+```
+
+Validation checks the following constraints:
+
+| Type | Validation |
+| --- | --- |
+| `Core` | Major, minor, and patch must each be within the supported 19-digit range (`0` to `9999999999999999999`) |
+| `PreRelease` | Must be empty or follow SemVer pre-release identifier rules |
+| `Build` | Commit must be empty or contain only lowercase hexadecimal characters (`0-9`, `a-f`) |
+| `SemVer` | Validates its core version, pre-release, and build information |
+| `Info` | Validates its semantic version and requires an RFC3339 timestamp when non-empty |
+
+For example, a directly constructed version with an invalid pre-release identifier is rejected:
+
+```go
+version.PreRelease = "rc.01"
+
+if err := version.Validate(); err != nil {
+	fmt.Println(err) // invalid prerelease "rc.01"
+}
+```
+
+An empty commit or timestamp is valid because VCS information may be unavailable. The `Dirty` flag does not require an accompanying commit.
+
+`ParseSemVerCore` and `NewInfo` already validate the supplied semantic version string during parsing. `Validate` is especially useful for values assembled or changed directly through the exported fields.
 
 ## 🔨 VCS build information
 
