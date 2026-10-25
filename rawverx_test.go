@@ -27,32 +27,48 @@ type buildCase struct {
 	expected string
 }
 
-func expectValidSemVer(t *testing.T, input string, expected SemVer) {
+type parseFunc func(string) (SemVer, error)
+
+func expectValidation(t *testing.T, s SemVer, validCore, validPreRelease bool) {
 	t.Helper()
 
-	core, err := ParseSemVerCore(input)
+	if err := s.Validate(); (err == nil) != (validCore && validPreRelease) {
+		t.Errorf("SemVer.Validate() = %v", err)
+	}
+	if err := s.Core.Validate(); (err == nil) != validCore {
+		t.Errorf("Core.Validate() = %v", err)
+	}
+	if err := s.PreRelease.Validate(); (err == nil) != validPreRelease {
+		t.Errorf("PreRelease.Validate() = %v", err)
+	}
+}
+
+func expectValidSemVer(t *testing.T, parseFn parseFunc, input string, expected SemVer) {
+	t.Helper()
+
+	core, err := parseFn(input)
 	if err != nil {
 		t.Fatalf("expected valid SemVer, got error: %v", err)
 	}
 	if core != expected {
-		t.Fatalf("expected SemVer %v, got %v", expected, core)
+		t.Fatalf("expected SemVer %q, got %q", expected, core)
 	}
 
 	if core.Build.HasCommit() {
-		t.Fatalf("expected empty commit hash, got '%v'", core.Build)
+		t.Fatalf("expected empty commit hash, got %q", core.Build)
 	}
 }
 
-func expectInvalidSemVer(t *testing.T, input string) {
+func expectInvalidSemVer(t *testing.T, parseFn parseFunc, input string) {
 	t.Helper()
 
-	core, err := ParseSemVerCore(input)
+	core, err := parseFn(input)
 	if err == nil {
-		t.Fatalf("expected invalid SemVer, got valid: %v", core)
+		t.Fatalf("expected invalid SemVer, got valid: %q", core)
 	}
 }
 
-func testPreReleaseCases(t *testing.T, c string, expected Core, validCore bool) {
+func testPreReleaseCases(t *testing.T, parseFn parseFunc, c string, expected Core, validCore bool) {
 	t.Helper()
 
 	preReleaseCases := []preReleaseCase{
@@ -90,24 +106,26 @@ func testPreReleaseCases(t *testing.T, c string, expected Core, validCore bool) 
 		p := strings.TrimPrefix(prCase.preRelease, "-")
 		i := fmt.Sprintf("%s%s", c, prCase.preRelease)
 		t.Run(i, func(t *testing.T) {
+			s := SemVer{Core: expected, PreRelease: PreRelease(p)}
 			if validCore && prCase.valid {
-				e := SemVer{Core: expected, PreRelease: PreRelease(p)}
-				expectValidSemVer(t, i, e)
+				expectValidSemVer(t, parseFn, i, s)
 			} else {
-				expectInvalidSemVer(t, i)
+				expectInvalidSemVer(t, parseFn, i)
 			}
+
+			expectValidation(t, s, true, prCase.valid || p == "")
 		})
 	}
 }
 
-func testCorePrefixCases(t *testing.T, c coreCase, p corePrefixCase) {
+func testCorePrefixCases(t *testing.T, parseFn parseFunc, c coreCase, p corePrefixCase) {
 	t.Helper()
 
 	expected := Core{c.major, c.minor, c.patch}
 	if p.prefix == "" {
 		i := fmt.Sprintf("%d.%d.%d", c.major, c.minor, c.patch)
 		t.Run(i, func(t *testing.T) {
-			testPreReleaseCases(t, i, expected, p.valid)
+			testPreReleaseCases(t, parseFn, i, expected, p.valid)
 		})
 		return
 	}
@@ -133,12 +151,12 @@ func testCorePrefixCases(t *testing.T, c coreCase, p corePrefixCase) {
 
 		i := fmt.Sprintf("%s.%s.%s", major, minor, patch)
 		t.Run(i, func(t *testing.T) {
-			testPreReleaseCases(t, i, e, p.valid)
+			testPreReleaseCases(t, parseFn, i, e, p.valid)
 		})
 	}
 }
 
-func testCoreCases(t *testing.T, c coreCase) {
+func testCoreCases(t *testing.T, parseFn parseFunc, c coreCase) {
 	t.Helper()
 
 	cases := []corePrefixCase{
@@ -151,25 +169,25 @@ func testCoreCases(t *testing.T, c coreCase) {
 	for _, p := range cases {
 		i := fmt.Sprintf("%s%d.%s%d.%s%d", p.prefix, c.major, p.prefix, c.minor, p.prefix, c.patch)
 		t.Run(i, func(t *testing.T) {
-			testCorePrefixCases(t, c, p)
+			testCorePrefixCases(t, parseFn, c, p)
 		})
 	}
 }
 
-func TestParseSemVer(t *testing.T) {
-	t.Parallel()
+func testParseSemVer(t *testing.T, parseFn parseFunc) {
+	t.Helper()
 
 	for v := uint64(0); v <= 7; v++ {
 		c := coreCase{major: v & 1, minor: v & 2, patch: v & 4}
 		i := fmt.Sprintf("%d.%d.%d", c.major, c.minor, c.patch)
 		t.Run(i, func(t *testing.T) {
-			testCoreCases(t, c)
+			testCoreCases(t, parseFn, c)
 		})
 	}
 }
 
-func TestParseNegativeSemVer(t *testing.T) {
-	t.Parallel()
+func testParseNegativeSemVer(t *testing.T, parseFn parseFunc) {
+	t.Helper()
 
 	cases := []string{
 		"-1.0.0",
@@ -180,40 +198,103 @@ func TestParseNegativeSemVer(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c, func(t *testing.T) {
-			expectInvalidSemVer(t, c)
+			expectInvalidSemVer(t, parseFn, c)
 		})
 	}
 }
 
-func TestParseLargeSemVer(t *testing.T) {
+func testParseLargeSemVer(t *testing.T, parseFn parseFunc) {
+	t.Helper()
+
+	cases := []struct {
+		c Core
+		v bool
+	}{
+		{Core{maxCoreValue, 0, 0}, true},
+		{Core{0, maxCoreValue, 0}, true},
+		{Core{0, 0, maxCoreValue}, true},
+		{Core{maxCoreValue + 1, 0, 0}, false},
+		{Core{0, maxCoreValue + 1, 0}, false},
+		{Core{0, 0, maxCoreValue + 1}, false},
+	}
+
+	for _, c := range cases {
+		d := fmt.Sprintf("%d.%d.%d", c.c.Major, c.c.Minor, c.c.Patch)
+		t.Run(d, func(t *testing.T) {
+			if c.v {
+				expectValidSemVer(t, parseFn, d, SemVer{Core: c.c})
+			} else {
+				expectInvalidSemVer(t, parseFn, d)
+			}
+			expectValidation(t, SemVer{Core: c.c}, c.v, true)
+		})
+	}
+}
+
+func TestParseSemVer(t *testing.T) {
 	t.Parallel()
 
-	t.Run("9999999999999999999.0.0", func(t *testing.T) {
-		expectValidSemVer(t, "9999999999999999999.0.0", SemVer{Core: Core{Major: 9999999999999999999, Minor: 0, Patch: 0}})
-	})
-	t.Run("0.9999999999999999999.0", func(t *testing.T) {
-		expectValidSemVer(t, "0.9999999999999999999.0", SemVer{Core: Core{Major: 0, Minor: 9999999999999999999, Patch: 0}})
-	})
-	t.Run("0.0.9999999999999999999", func(t *testing.T) {
-		expectValidSemVer(t, "0.0.9999999999999999999", SemVer{Core: Core{Major: 0, Minor: 0, Patch: 9999999999999999999}})
-	})
+	parseCases := []struct {
+		name  string
+		parse parseFunc
+	}{
+		{"ParseSemVerCore", ParseSemVerCore},
+		{"NewInfo", func(s string) (SemVer, error) {
+			info, err := NewInfo(s)
+			info.Version.Build = Build{}
 
-	t.Run("10000000000000000000.0.0", func(t *testing.T) {
-		expectInvalidSemVer(t, "10000000000000000000.0.0")
-	})
-	t.Run("0.10000000000000000000.0", func(t *testing.T) {
-		expectInvalidSemVer(t, "0.10000000000000000000.0")
-	})
-	t.Run("0.0.10000000000000000000", func(t *testing.T) {
-		expectInvalidSemVer(t, "0.0.10000000000000000000")
-	})
+			return info.Version, err
+		}},
+	}
+
+	for _, c := range parseCases {
+		t.Run(c.name, func(t *testing.T) {
+			testParseSemVer(t, c.parse)
+			testParseNegativeSemVer(t, c.parse)
+			testParseLargeSemVer(t, c.parse)
+		})
+	}
 }
 
 func testBuildString(t *testing.T, c buildCase) {
 	t.Helper()
 
 	if got := c.build.String(); got != c.expected {
-		t.Errorf("Build.String() = %v, want %v", got, c.expected)
+		t.Errorf("Build.String() = %q, want %q", got, c.expected)
+	}
+}
+
+func testSemVerString(t *testing.T, c buildCase) {
+	t.Helper()
+
+	v := SemVer{Build: c.build}
+	s := v.String()
+
+	expected := "0.0.0"
+	if c.expected != "" {
+		expected += "+git." + c.expected
+	}
+
+	if s != expected {
+		t.Errorf("SemVer.String() = %q, want %q", s, expected)
+	}
+}
+
+func testInfoString(t *testing.T, c buildCase) {
+	t.Helper()
+
+	i := Info{Version: SemVer{Build: c.build}}
+	s := i.String()
+
+	expected := "0.0.0 build: "
+	if c.expected == "" {
+		expected += "unknown"
+	} else {
+		expected += c.expected
+	}
+
+	if s != expected {
+		t.Errorf("Info.String() = %q, want %q", s, expected)
 	}
 }
 
@@ -230,8 +311,10 @@ func TestBuildString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.build.String(), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%q/%t", c.build.Commit, c.build.Dirty), func(t *testing.T) {
 			testBuildString(t, c)
+			testSemVerString(t, c)
+			testInfoString(t, c)
 		})
 	}
 }
@@ -249,7 +332,7 @@ func TestBuildShortCommitString(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		t.Run(c.build.String(), func(t *testing.T) {
+		t.Run(fmt.Sprintf("%q/%t", c.build.Commit, c.build.Dirty), func(t *testing.T) {
 			testBuildString(t, buildCase{c.build.ShortCommit(), c.expected})
 		})
 	}

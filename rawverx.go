@@ -6,6 +6,8 @@ import (
 	"regexp"
 	"runtime/debug"
 	"strconv"
+	"strings"
+	"time"
 )
 
 type Core struct {
@@ -30,9 +32,13 @@ type Info struct {
 	Time    string
 }
 
+const maxCoreValue uint64 = 9999999999999999999
+
 var semverCoreRe = regexp.MustCompile(
 	`^(0|[1-9][0-9]{0,18})\.(0|[1-9][0-9]{0,18})\.(0|[1-9][0-9]{0,18})(?:-((?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*))?$`,
 )
+var preReleasePartNumRe = regexp.MustCompile(`^(?:0|[1-9][0-9]*)$`)
+var commitHashRe = regexp.MustCompile(`^[0-9a-f]*$`)
 
 func NewInfo(c string) (Info, error) {
 	v, err := ParseSemVerCore(c)
@@ -61,6 +67,205 @@ func NewInfo(c string) (Info, error) {
 	}
 
 	return i, nil
+}
+
+// Compare compares two core versions by major, minor, and patch.
+//
+// It returns -1 if c is less than o, 0 if they are equal,
+// and +1 if c is greater than o.
+func (c Core) Compare(o Core) int {
+	cmp := func(a uint64, b uint64) int {
+		if a < b {
+			return -1
+		}
+
+		return 1
+	}
+
+	if c.Major != o.Major {
+		return cmp(c.Major, o.Major)
+	}
+	if c.Minor != o.Minor {
+		return cmp(c.Minor, o.Minor)
+	}
+	if c.Patch != o.Patch {
+		return cmp(c.Patch, o.Patch)
+	}
+
+	return 0
+}
+
+// Compare compares two pre-release versions according to SemVer precedence rules.
+//
+// Both PreRelease values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if p is less than o, 0 if they are equal,
+// and +1 if p is greater than o.
+func (p PreRelease) Compare(o PreRelease) int {
+	switch {
+	case p == o:
+		return 0
+	// 1.0.0 > 1.0.0-alpha
+	case p == "":
+		return 1
+	// 1.0.0-alpha < 1.0.0
+	case o == "":
+		return -1
+	}
+
+	pp := strings.Split(p.String(), ".")
+	po := strings.Split(o.String(), ".")
+
+	spp := len(pp)
+	spo := len(po)
+
+	s := spp
+	if spo < spp {
+		s = spo
+	}
+
+	for i := 0; i < s; i++ {
+		ppi := pp[i]
+		poi := po[i]
+
+		nppi := preReleasePartNumRe.MatchString(ppi)
+		npoi := preReleasePartNumRe.MatchString(poi)
+
+		switch {
+		case nppi && npoi:
+			lppi := len(ppi)
+			lpoi := len(poi)
+			if lppi < lpoi {
+				return -1
+			}
+			if lppi > lpoi {
+				return 1
+			}
+		case nppi && !npoi:
+			return -1
+		case !nppi && npoi:
+			return 1
+		}
+
+		if r := strings.Compare(ppi, poi); r != 0 {
+			return r
+		}
+	}
+
+	if spp < spo {
+		return -1
+	}
+
+	return 1
+}
+
+// Compare compares two semantic versions according to SemVer precedence rules.
+// Build metadata is ignored.
+//
+// Both SemVer values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if v is less than o, 0 if they are equal,
+// and +1 if v is greater than o.
+func (v SemVer) Compare(o SemVer) int {
+	if r := v.Core.Compare(o.Core); r != 0 {
+		return r
+	}
+
+	return v.PreRelease.Compare(o.PreRelease)
+}
+
+// Compare compares two Info values by semantic version and, if equal,
+// by their timestamps. An empty timestamp precedes a non-empty one.
+//
+// Both Info values must be valid. Use Validate to check them beforehand.
+//
+// It returns -1 if i is less than o, 0 if they are equal,
+// and +1 if i is greater than o.
+func (i Info) Compare(o Info) int {
+	if r := i.Version.Compare(o.Version); r != 0 {
+		return r
+	}
+
+	if i.Time == "" || o.Time == "" {
+		return strings.Compare(i.Time, o.Time)
+	}
+
+	ti, _ := time.Parse(time.RFC3339, i.Time)
+	to, _ := time.Parse(time.RFC3339, o.Time)
+
+	switch {
+	case ti.Before(to):
+		return -1
+	case ti.After(to):
+		return 1
+	default:
+		return 0
+	}
+}
+
+func (c Core) Validate() error {
+	if c.Major > maxCoreValue {
+		return fmt.Errorf("invalid major %d: exceeds maximum of %d", c.Major, maxCoreValue)
+	}
+	if c.Minor > maxCoreValue {
+		return fmt.Errorf("invalid minor %d: exceeds maximum of %d", c.Minor, maxCoreValue)
+	}
+	if c.Patch > maxCoreValue {
+		return fmt.Errorf("invalid patch %d: exceeds maximum of %d", c.Patch, maxCoreValue)
+	}
+
+	return nil
+}
+
+func (p PreRelease) Validate() error {
+	if p == "" {
+		return nil
+	}
+
+	if semverCoreRe.MatchString("0.0.0-" + p.String()) {
+		return nil
+	}
+
+	return fmt.Errorf("invalid prerelease %q", p)
+}
+
+func (b Build) Validate() error {
+	if commitHashRe.MatchString(b.Commit) {
+		return nil
+	}
+
+	return fmt.Errorf("invalid commit hash %q", b.Commit)
+}
+
+func (v SemVer) Validate() error {
+	if err := v.Core.Validate(); err != nil {
+		return err
+	}
+	if err := v.PreRelease.Validate(); err != nil {
+		return err
+	}
+
+	if err := v.Build.Validate(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (i Info) Validate() error {
+	if err := i.Version.Validate(); err != nil {
+		return err
+	}
+
+	if i.Time == "" {
+		return nil
+	}
+
+	if _, err := time.Parse(time.RFC3339, i.Time); err != nil {
+		return fmt.Errorf("invalid timestamp %q: %w", i.Time, err)
+	}
+
+	return nil
 }
 
 func (c Core) String() string {
