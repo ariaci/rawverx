@@ -42,11 +42,15 @@ Run the following commands from the `examples/complete-workflow` directory.
 
 ### Run the application
 
+Run the example with VCS metadata explicitly enabled:
+
 ```bash
-go run .
+go run -buildvcs .
 ```
 
-The application prints the embedded semantic version together with available VCS information. The exact output depends on the Git state and the build environment.
+The application prints the embedded semantic version together with the available VCS information, including the commit hash, commit timestamp, and dirty state.
+
+VCS metadata is captured when the application is built. The exact output depends on the Git state and the build environment.
 
 ### Generate Windows version resources
 
