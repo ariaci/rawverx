@@ -114,15 +114,6 @@ Using `strings.TrimSpace` allows the version file to contain the usual trailing 
 
 This keeps the application version in a single, easily accessible file while still embedding it directly into the resulting binary. No linker flags or generated Go source files are required.
 
-## 🔄 Complete workflow
-
-For a complete, working example demonstrating how to use
-`rawverx` and `genverx` together with a shared `VERSION`
-file, see the [complete workflow example](examples/complete-workflow/).
-
-The example demonstrates version embedding, Git metadata,
-Windows resource generation, and building the final executable.
-
 ### Pre-release versions
 
 Pre-release identifiers can be supplied as part of the application version:
@@ -154,6 +145,15 @@ An identifier containing non-numeric characters is treated as an alphanumeric id
 ```text
 1.2.3-01a     // valid
 ```
+
+## 🔄 Complete workflow
+
+For a complete, working example demonstrating how to use
+`rawverx` and `genverx` together with a shared `VERSION`
+file, see the [complete workflow example](examples/complete-workflow/).
+
+The example demonstrates version embedding, Git metadata,
+Windows resource generation, and building the final executable.
 
 ## 🧩 Version structure
 
