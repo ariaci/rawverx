@@ -73,6 +73,56 @@ If no VCS information is available:
 1.2.3 build: unknown
 ```
 
+### Embed the application version
+
+The application version can also be stored in a separate file and embedded into the binary using Go's `embed` package.
+
+For example, given a `VERSION` file:
+
+```text
+1.2.3
+```
+
+it can be embedded and passed directly to `rawverx`:
+
+```go
+package main
+
+import (
+	_ "embed"
+	"fmt"
+	"log"
+	"strings"
+
+	"github.com/ariaci/rawverx"
+)
+
+//go:embed VERSION
+var version string
+
+func main() {
+	info, err := rawverx.NewInfo(strings.TrimSpace(version))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(info)
+}
+```
+
+Using `strings.TrimSpace` allows the version file to contain the usual trailing newline.
+
+This keeps the application version in a single, easily accessible file while still embedding it directly into the resulting binary. No linker flags or generated Go source files are required.
+
+## 🔄 Complete workflow
+
+For a complete, working example demonstrating how to use
+`rawverx` and `genverx` together with a shared `VERSION`
+file, see the [complete workflow example](examples/complete-workflow/).
+
+The example demonstrates version embedding, Git metadata,
+Windows resource generation, and building the final executable.
+
 ### Pre-release versions
 
 Pre-release identifiers can be supplied as part of the application version:
@@ -411,3 +461,10 @@ It is maintained as a separate Go module so applications that only require `rawv
 ## 📄 License
 
 `rawverx` is licensed under the [MIT License](LICENSE).
+
+<p align="center">
+  <a href="https://hub.xerj.org/contributors/ariaci">
+    <img src="https://hub.xerj.org/contributors/ariaci/badge.svg"
+         alt="XERJ Corpus Hub contributor">
+  </a>
+</p>
