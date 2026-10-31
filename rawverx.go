@@ -1,7 +1,6 @@
 package rawverx
 
 import (
-	_ "embed"
 	"fmt"
 	"regexp"
 	"runtime/debug"
