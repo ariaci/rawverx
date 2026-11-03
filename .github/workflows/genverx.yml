@@ -25,10 +25,21 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Determine version
+        run: |
+          echo "GENVERX_VERSION=${GITHUB_REF_NAME#genverx/}" >> "$GITHUB_ENV"
       - name: Test module
         run: |
+          mkdir .build
           cd genverx
-          go test ./...
+          go test -vet=all -coverprofile=../.build/genverx-${{ env.GENVERX_VERSION }}-coverage.go-${{ matrix.go-version }}.out ./...
+
+      - name: Upload coverage profiles
+        uses: ariaci/gha-upload-artifact@v1
+        with:
+          name: coverage.go-${{ matrix.go-version }}
+          path: |
+            .build/genverx-${{ env.GENVERX_VERSION }}-coverage.go-${{ matrix.go-version }}.out
 
   update-pkg-go-dev:
     name: Update pkg.go.dev
@@ -37,8 +48,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Update pkg.go.dev
-        if: ${{ !env.ACT }}
+      - name: Determine version
         run: |
-          VERSION="${GITHUB_REF_NAME#genverx/}"
-          curl --fail --silent --show-error "https://sum.golang.org/lookup/github.com/ariaci/rawverx/genverx@${VERSION}"
+          echo "GENVERX_VERSION=${GITHUB_REF_NAME#genverx/}" >> "$GITHUB_ENV"
+      - name: Update pkg.go.dev
+        uses: ariaci/gha-update-pkg-go-dev@v1
+        with:
+          module: github.com/ariaci/rawverx/genverx
+          version: ${{ env.GENVERX_VERSION }}

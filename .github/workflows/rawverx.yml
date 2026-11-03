@@ -27,7 +27,15 @@ jobs:
 
       - name: Test module
         run: |
-          go test ./...
+          mkdir .build
+          go test -vet=all -coverprofile=.build/rawverx-${{ github.ref_name }}-coverage.go-${{ matrix.go-version }}.out ./...
+
+      - name: Upload coverage profiles
+        uses: ariaci/gha-upload-artifact@v1
+        with:
+          name: coverage.go-${{ matrix.go-version }}
+          path: |
+            .build/rawverx-${{ github.ref_name }}-coverage.go-${{ matrix.go-version }}.out
 
   update-pkg-go-dev:
     name: Update pkg.go.dev
@@ -37,6 +45,7 @@ jobs:
 
     steps:
       - name: Update pkg.go.dev
-        if: ${{ !env.ACT }}
-        run: |
-          curl --fail --silent --show-error "https://sum.golang.org/lookup/github.com/ariaci/rawverx@${{ github.ref_name }}"
+        uses: ariaci/gha-update-pkg-go-dev@v1
+        with:
+          module: github.com/ariaci/rawverx
+          version: ${{ github.ref_name }}
