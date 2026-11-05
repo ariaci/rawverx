@@ -28,18 +28,24 @@ jobs:
       - name: Determine version
         run: |
           echo "GENVERX_VERSION=${GITHUB_REF_NAME#genverx/}" >> "$GITHUB_ENV"
+      - name: Determine coverage file basename
+        run: |
+          echo "COVERAGE_FILE=.build/genverx-${{ env.GENVERX_VERSION }}-coverage.go-${{ matrix.go-version }}" >> "$GITHUB_ENV"
+
       - name: Test module
         run: |
           mkdir .build
           cd genverx
-          go test -vet=all -coverprofile=../.build/genverx-${{ env.GENVERX_VERSION }}-coverage.go-${{ matrix.go-version }}.out ./...
+          go test -vet=all -coverprofile='../${{ env.COVERAGE_FILE }}.out' ./...
+          go tool cover -html='../${{ env.COVERAGE_FILE }}.out' -o '../${{ env.COVERAGE_FILE }}.html'
 
       - name: Upload coverage profiles
         uses: ariaci/gha-upload-artifact@v1
         with:
           name: coverage.go-${{ matrix.go-version }}
           path: |
-            .build/genverx-${{ env.GENVERX_VERSION }}-coverage.go-${{ matrix.go-version }}.out
+            ${{ env.COVERAGE_FILE }}.out
+            ${{ env.COVERAGE_FILE }}.html
 
   release:
     name: Create Release
