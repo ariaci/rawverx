@@ -277,3 +277,10 @@ Keeping both modules separate allows applications that only need version informa
 ## 📄 License
 
 `genverx` is licensed under the [MIT License](../LICENSE).
+
+<p align="center">
+  <a href="https://hub.xerj.org/contributors/ariaci">
+    <img src="https://hub.xerj.org/contributors/ariaci/badge.svg"
+         alt="XERJ Corpus Hub contributor">
+  </a>
+</p>

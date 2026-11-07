@@ -25,9 +25,36 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
+      - name: Determine coverage file basename
+        run: |
+          echo "COVERAGE_FILE=.build/rawverx-${{ github.ref_name }}-coverage.go-${{ matrix.go-version }}" >> "$GITHUB_ENV"
       - name: Test module
         run: |
-          go test ./...
+          mkdir .build
+          go test -vet=all -coverprofile='${{ env.COVERAGE_FILE }}.out' ./...
+          go tool cover -html='${{ env.COVERAGE_FILE }}.out' -o '${{ env.COVERAGE_FILE }}.html'
+
+      - name: Upload coverage profiles
+        uses: ariaci/gha-upload-artifact@v1
+        with:
+          name: coverage.go-${{ matrix.go-version }}
+          path: |
+            ${{ env.COVERAGE_FILE }}.out
+            ${{ env.COVERAGE_FILE }}.html
+
+  release:
+    name: Create Release
+    needs: [test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+
+      - uses: ariaci/gha-make-release@v1
 
   update-pkg-go-dev:
     name: Update pkg.go.dev
@@ -37,6 +64,7 @@ jobs:
 
     steps:
       - name: Update pkg.go.dev
-        if: ${{ !env.ACT }}
-        run: |
-          curl --fail --silent --show-error "https://sum.golang.org/lookup/github.com/ariaci/rawverx@${{ github.ref_name }}"
+        uses: ariaci/gha-update-pkg-go-dev@v1
+        with:
+          module: github.com/ariaci/rawverx
+          version: ${{ github.ref_name }}
