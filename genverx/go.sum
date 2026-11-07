@@ -1,5 +1,5 @@
-github.com/ariaci/rawverx v1.0.0 h1:dY2yvsLEw7973lhj5xgzMvc2CULjHH/U4MJDkeBYDR4=
-github.com/ariaci/rawverx v1.0.0/go.mod h1:um2PxFV7XVBekMfha4HxMfjOvnGEmu+6TbddUUEKV4c=
+github.com/ariaci/rawverx v1.1.1 h1:61m8CCfVoZPIOEd10FjLiBHUKcEMwLebOHOhqdCY11c=
+github.com/ariaci/rawverx v1.1.1/go.mod h1:um2PxFV7XVBekMfha4HxMfjOvnGEmu+6TbddUUEKV4c=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646 h1:zYyBkD/k9seD2A7fsi6Oo2LfFZAehjjQMERAvZLEDnQ=
 github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646/go.mod h1:jpp1/29i3P1S/RLdc7JQKbRpFeM1dOBd8T9ki5s+AY8=
 github.com/tc-hib/winres v0.2.1 h1:YDE0FiP0VmtRaDn7+aaChp1KiF4owBiJa5l964l5ujA=
